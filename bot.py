@@ -4,6 +4,7 @@ from constants import token
 
 START_ADD_EVENT, TYPE_EVENT = range(2)
 START_ADD_USER, TYPING_USER = range(2)
+SWITH_EVENT_START, SWITCH_EVENT_TYPE = range(2)
 START_TRANSACTION, TYPE_TRANSACTION_NAME, CHOOSE_USERS, ENTER_PRICE, USER_PRICE = range(
     5)
 
@@ -37,10 +38,57 @@ async def type_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         context.user_data['events'] = {}
 
-    context.user_data['events'][event] = {'users': {}, 'transactions': []}
+    context.user_data['events'][event] = {
+        'users': {}, 'transactions': [], 'name': event}
     context.user_data['active-event'] = context.user_data['events'][event]
 
     await update.message.reply_text(f'Event {event} Successfully added.\nNow Try Adding Your Users to it with /add_user:')
+    return ConversationHandler.END
+
+
+async def swith_event_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if ('events' not in context.user_data):
+        await update.message.reply_text(
+            'You have no event\n'
+            'Try Adding one with /add_event'
+        )
+        return ConversationHandler.END
+
+    events = list(context.user_data['events'].keys())
+    active_event = context.user_data['active-event']['name']
+
+    if (len(events) == 1):
+        await update.message.reply_text(
+            'You have only 1 event\n'
+            'Try Adding another with /add_event'
+        )
+        return ConversationHandler.END
+
+    await update.message.reply_text(
+        f'Current event is: {active_event}\n'
+        'Choose one event to swith:\n'
+        'or hit /cancel to stop switching',
+        reply_markup=ReplyKeyboardMarkup([events])
+    )
+    return SWITCH_EVENT_TYPE
+
+
+async def switch_event_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    event = update.message.text
+
+    events = list(context.user_data['events'].keys())
+
+    if (event not in events):
+        await update.message.reply_text(
+            'This event not exist\n'
+            'Try Choosing an event:',
+            reply_markup=ReplyKeyboardMarkup([events])
+        )
+        return SWITCH_EVENT_TYPE
+
+    context.user_data['active-event'] = context.user_data['events'][event]
+
+    await update.message.reply_text(f'Successfully switched to event "{event}"')
     return ConversationHandler.END
 
 
@@ -318,6 +366,16 @@ def main() -> None:
                 filters.TEXT & ~filters.COMMAND, type_event_name)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
+    ))
+
+    application.add_handler(ConversationHandler(
+        entry_points=[CommandHandler('switch_event', swith_event_start)],
+        states={
+            SWITCH_EVENT_TYPE: MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                switch_event_type
+            )
+        }
     ))
 
     application.add_handler(ConversationHandler(
