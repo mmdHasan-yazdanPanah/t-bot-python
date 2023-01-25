@@ -12,7 +12,10 @@ async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         '/add_event -> To Add Event\n'
         '/add_user -> To Add User to current Event\n'
-        '/show_events -> To Show and Switch current event\n'
+        '/switch_event -> To Switch Event\n'
+        '/show_status -> To Show Users Accoutn Status in current event\n'
+        '/transfer -> Transfer money throgh current Event\n'
+        '/export_status -> To export paiment status in a file\n'
         '/add_transaction -> To Add Transaction to current event\n'
         '/cancel -> To cancel current job',
     )
