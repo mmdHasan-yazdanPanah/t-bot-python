@@ -1,4 +1,4 @@
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, ContextTypes, PicklePersistence, CommandHandler, ConversationHandler, MessageHandler, filters
 from constants import token
 
@@ -88,7 +88,7 @@ async def switch_event_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['active-event'] = context.user_data['events'][event]
 
-    await update.message.reply_text(f'Successfully switched to event "{event}"')
+    await update.message.reply_text(f'Successfully switched to event "{event}"', reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
@@ -254,7 +254,8 @@ async def add_user_transaction(update: Update, context: ContextTypes.DEFAULT_TYP
 async def finish_add_user_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         'Users successfully added to transaction.\n'
-        'Now Try Entering the price:'
+        'Now Try Entering the price:',
+        reply_markup=ReplyKeyboardRemove()
     )
 
     return ENTER_PRICE
@@ -345,6 +346,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         'Canceled job\n'
         'Try Use /show_commands To see commands',
+        reply_markup=ReplyKeyboardRemove()
     )
 
     return ConversationHandler.END
@@ -371,11 +373,12 @@ def main() -> None:
     application.add_handler(ConversationHandler(
         entry_points=[CommandHandler('switch_event', swith_event_start)],
         states={
-            SWITCH_EVENT_TYPE: MessageHandler(
+            SWITCH_EVENT_TYPE: [MessageHandler(
                 filters.TEXT & ~filters.COMMAND,
                 switch_event_type
-            )
-        }
+            )]
+        },
+        fallbacks=[CommandHandler('cancel', cancel)]
     ))
 
     application.add_handler(ConversationHandler(
