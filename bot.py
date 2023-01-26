@@ -534,6 +534,27 @@ async def reciver(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def export_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if ('events' not in context.user_data):
+        await update.message.reply_text(
+            'You have no event\n'
+            'Try Adding one with /add_event',
+            reply_markup=ReplyKeyboardRemove()
+        )
+
+    username = update.message.from_user.username
+    event = context.user_data['active-event']
+    e_name = event['name']
+
+    msg = await update.message.reply_text('Writing...')
+    f = open(f'{username}_{e_name}_status.txt', 'w')
+    f.write(str(event))
+    f.close()
+    await msg.edit_text('Uploading....')
+    await update.message.reply_document(f'{username}_{e_name}_status.txt')
+    await msg.edit_text('Sent.')
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ('active-transaction' in context.user_data):
         del context.user_data['active-transaction']
@@ -633,6 +654,8 @@ def main() -> None:
     ))
 
     application.add_handler(CommandHandler('show_status', show_status))
+
+    application.add_handler(CommandHandler('export_status', export_status))
 
     application.run_polling()
 
