@@ -111,12 +111,15 @@ async def show_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     active_event_name = context.user_data['active-event']['name']
     users_string = str(active_event['users'])
     t_string = str(active_event['transactions'])
+    tr_string = str(active_event['transfers'])
 
     await update.message.reply_text(
         f'Current event is: "{active_event_name}"\n\n'
         f'Sum: {users_string}\n\n'
         'Transaction Details: \n'
-        f'{t_string}',
+        f'{t_string}\n\n'
+        'Transfers Detail:\n'
+        f'{tr_string}',
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -144,25 +147,28 @@ async def type_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if (username in active_event['users']):
         await update.message.reply_text(
-            'This user currently exists\n'
+            'This user currently exists\n\n'
             'Try Adding another User with /add_user\n'
-            'Try Adding Transaction with /add_transaction'
+            'Try Adding Transaction with /add_transaction\n'
+            'Try Transfer with /transfer'
         )
         return ConversationHandler.END
 
     if (username == 'Done'):
         await update.message.reply_text(
-            'username cannot be "Done" \n'
+            'username cannot be "Done" \n\n'
             'Try Adding another User with /add_user\n'
-            'Try Adding Transaction with /add_transaction'
+            'Try Adding Transaction with /add_transaction\n'
+            'Try Transfer with /transfer'
         )
         return ConversationHandler.END
 
     active_event['users'][username] = 0
     await update.message.reply_text(
-        f'User {username} successfully added.\n'
+        f'User {username} successfully added.\n\n'
         'Try Adding another User with /add_user\n'
-        'Try Adding Transaction with /add_transaction'
+        'Try Adding Transaction with /add_transaction\n'
+        'Try Transfer with /transfer'
     )
     return ConversationHandler.END
 
@@ -485,7 +491,7 @@ async def transfer_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def reciver(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    r_name: update.message.text
+    r_name = update.message.text
 
     active_event = context.user_data['active-event']
     users = active_event['users']
@@ -515,7 +521,7 @@ async def reciver(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users[transfer['sender']] += transfer['price']
     users[transfer['reciver']] -= transfer['price']
     active_event['transfers'].append(transfer)
-    del active_event['active-transfer']
+    del context.user_data['active-transfer']
 
     users_string = str(active_event['users'])
 
