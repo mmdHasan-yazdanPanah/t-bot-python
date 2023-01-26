@@ -7,6 +7,8 @@ START_ADD_USER, TYPING_USER = range(2)
 SWITH_EVENT_START, SWITCH_EVENT_TYPE = range(2)
 START_TRANSACTION, TYPE_TRANSACTION_NAME, CHOOSE_USERS, ENTER_PRICE, USER_PRICE = range(
     5)
+TRANSFER_START, TRANSFER_TYPE, TRANSFER_SENDER, TRANSFER_PRICE, TRANSFER_RECIVER = range(
+    5)
 
 
 async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -19,11 +21,12 @@ async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '/export_status -> To export paiment status in a file\n'
         '/add_transaction -> To Add Transaction to current event\n'
         '/cancel -> To cancel current job',
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
 async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Type Your Event name:\n or use /cancel to stop making event')
+    await update.message.reply_text('Type Your Event name:\n or use /cancel to stop making event', reply_markup=ReplyKeyboardRemove())
 
     return TYPE_EVENT
 
@@ -39,7 +42,7 @@ async def type_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['events'] = {}
 
     context.user_data['events'][event] = {
-        'users': {}, 'transactions': [], 'name': event}
+        'name': event, 'users': {}, 'transactions': [], 'transfers': []}
     context.user_data['active-event'] = context.user_data['events'][event]
 
     await update.message.reply_text(f'Event {event} Successfully added.\nNow Try Adding Your Users to it with /add_user:')
@@ -50,7 +53,8 @@ async def swith_event_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ('events' not in context.user_data):
         await update.message.reply_text(
             'You have no event\n'
-            'Try Adding one with /add_event'
+            'Try Adding one with /add_event',
+            reply_markup=ReplyKeyboardRemove()
         )
         return ConversationHandler.END
 
@@ -60,7 +64,8 @@ async def swith_event_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if (len(events) == 1):
         await update.message.reply_text(
             'You have only 1 event\n'
-            'Try Adding another with /add_event'
+            'Try Adding another with /add_event',
+            reply_markup=ReplyKeyboardRemove()
         )
         return ConversationHandler.END
 
@@ -97,7 +102,8 @@ async def show_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ('events' not in context.user_data):
         await update.message.reply_text(
             'You have no event\n'
-            'Try Adding one with /add_event'
+            'Try Adding one with /add_event',
+            reply_markup=ReplyKeyboardRemove()
         )
         return
 
@@ -110,7 +116,8 @@ async def show_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f'Current event is: "{active_event_name}"\n\n'
         f'Sum: {users_string}\n\n'
         'Transaction Details: \n'
-        f'{t_string}'
+        f'{t_string}',
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -119,12 +126,14 @@ async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             'No Active-event found\n'
             'Try /add_event to create one',
+            reply_markup=ReplyKeyboardRemove()
         )
         return ConversationHandler.END
 
     await update.message.reply_text(
         'Type username:\n'
-        'use /cancel to stop adding user.'
+        'use /cancel to stop adding user.',
+        reply_markup=ReplyKeyboardRemove()
     )
     return TYPING_USER
 
@@ -164,6 +173,7 @@ async def add_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             'No Active-event found\n'
             'Try /add_event to create one',
+            reply_markup=ReplyKeyboardRemove()
         )
         return ConversationHandler.END
 
@@ -174,12 +184,14 @@ async def add_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             'No Users found\n'
             'Try /add_user to create one',
+            reply_markup=ReplyKeyboardRemove()
         )
         return ConversationHandler.END
 
     await update.message.reply_text(
         'Type Transaction name: \n'
-        'use /cancel to stop adding transaction.'
+        'use /cancel to stop adding transaction.',
+        reply_markup=ReplyKeyboardRemove()
     )
 
     return TYPE_TRANSACTION_NAME
@@ -318,8 +330,9 @@ async def enter_user_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     t_price = update.message.text
 
     active_t = context.user_data['active-transaction']
+    t_users = active_t['users']
     active_event = context.user_data['active-event']
-    users = list(active_t['users'].keys())
+    users = list(t_users.keys())
     active_user_index = context.user_data['active_user_index']
     active_user = users[active_user_index]
     each_share_price = active_t['price'] / len(users)
@@ -334,14 +347,18 @@ async def enter_user_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     price = float(t_price)
     active_t['users'][active_user] = price - each_share_price
-    active_event['users'][active_user] = price - each_share_price
 
     print('user share added')
     print(context.user_data)
 
     if (active_user_index + 1 == len(users)):
+        event_users = active_event['users']
+
+        for u_t in t_users:
+            event_users[u_t] += t_users[u_t]
+
         active_event['transactions'].append(active_t)
-        users_string = str(active_event['users'])
+        users_string = str(event_users)
 
         await update.message.reply_text(
             'Excelent, Now All shares acounted\n'
@@ -361,9 +378,162 @@ async def enter_user_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return USER_PRICE
 
 
+async def start_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if ('events' not in context.user_data):
+        await update.message.reply_text(
+            'You have no event\n'
+            'Try Adding one with /add_event',
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return ConversationHandler.END
+
+    event = context.user_data['active-event']
+    event_name = event['name']
+    users = list(event['users'].keys())
+
+    if (len(users) < 2):
+        await update.message.reply_text(
+            f'You have fewer than 2 users in event "{event_name}"\n'
+            'Try adding user with /add_user',
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return ConversationHandler.END
+
+    await update.message.reply_text(
+        'Type Transfer name:\n\n'
+        'Or canecl transfer with with /cancel',
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return TRANSFER_TYPE
+
+
+async def type_transfer_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    t_name = update.message.text
+
+    context.user_data['active-transfer'] = {
+        'name': t_name,
+        'sender': None,
+        'reciver': None,
+        'price': None
+    }
+
+    active_event = context.user_data['active-event']
+    users = active_event['users']
+    users_list = list(users.keys())
+
+    await update.message.reply_text(
+        f'Transfer name "{t_name}" added\n'
+        'Now Choose the sender user:\n\n'
+        'or cancel with /cancel',
+        reply_markup=ReplyKeyboardMarkup([users_list])
+    )
+    return TRANSFER_SENDER
+
+
+async def sender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    username = update.message.text
+
+    active_event = context.user_data['active-event']
+    users = active_event['users']
+    users_list = list(users.keys())
+
+    if (username not in users):
+        await update.message.reply_text(
+            'This user does not exist, Try Choosing a user:\n\n'
+            'or cancel with /cancel',
+            reply_markup=ReplyKeyboardMarkup([users_list])
+
+        )
+        return TRANSFER_SENDER
+
+    transfer = context.user_data['active-transfer']
+    transfer['sender'] = username
+
+    await update.message.reply_text(
+        'Sender successfully added\n'
+        'Now type the Price to transfer:\n\n'
+        'or cancel with /cancel',
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return TRANSFER_PRICE
+
+
+async def transfer_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    t_price = update.message.text
+
+    if not (t_price.isnumeric()):
+        await update.message.reply_text(
+            'You Have entered a non numeric value'
+            'Please Enter a number as price:'
+        )
+        return TRANSFER_PRICE
+
+    price = float(t_price)
+    active_event = context.user_data['active-event']
+    users = active_event['users']
+    transfer = context.user_data['active-transfer']
+    filtered_users = list(filter(lambda u: (u != transfer['sender']), users))
+    transfer['price'] = price
+
+    await update.message.reply_text(
+        'Price successfully added\n'
+        'Now Choose the reciver to transfer:\n\n'
+        'or cancel with /cancel',
+        reply_markup=ReplyKeyboardMarkup([filtered_users])
+    )
+    return TRANSFER_RECIVER
+
+
+async def reciver(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    r_name: update.message.text
+
+    active_event = context.user_data['active-event']
+    users = active_event['users']
+    transfer = context.user_data['active-transfer']
+    filtered_users = list(
+        filter(lambda u: (u != transfer['sender']), users))
+
+    if (r_name not in users):
+        await update.message.reply_text(
+            'This user does not exist, Try Choosing a user:\n\n'
+            'or cancel with /cancel',
+            reply_markup=ReplyKeyboardMarkup([filtered_users])
+
+        )
+        return TRANSFER_RECIVER
+
+    if (r_name == transfer['sender']):
+        await update.message.reply_text(
+            'User sender and reciver cannot be the same\n'
+            'Try Choosing a user:\n\n'
+            'or cancel with /cancel',
+            reply_markup=ReplyKeyboardMarkup([filtered_users])
+        )
+        return TRANSFER_RECIVER
+
+    transfer['reciver'] = r_name
+    users[transfer['sender']] += transfer['price']
+    users[transfer['reciver']] -= transfer['price']
+    active_event['transfers'].append(transfer)
+    del active_event['active-transfer']
+
+    users_string = str(active_event['users'])
+
+    await update.message.reply_text(
+        'Transfer is Done.'
+        'Users status:\n'
+        f'{users_string}',
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ConversationHandler.END
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ('active-transaction' in context.user_data):
         del context.user_data['active-transaction']
+
+    if ('active-transfer' in context.user_data):
+        del context.user_data['active-transfer']
 
     await update.message.reply_text(
         'Canceled job\n'
@@ -430,6 +600,30 @@ def main() -> None:
             USER_PRICE: [MessageHandler(filters.TEXT & ~(filters.COMMAND), enter_user_price)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
+    ))
+
+    application.add_handler(ConversationHandler(
+        entry_points=[CommandHandler('transfer', start_transfer)],
+        states={
+            TRANSFER_TYPE: [MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                type_transfer_name
+            )],
+            TRANSFER_SENDER: [MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                sender
+            )],
+            TRANSFER_PRICE: [MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                transfer_price
+            )],
+            TRANSFER_RECIVER: [MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                reciver
+            )]
+        },
+        fallbacks=[CommandHandler('cancel', cancel)]
+
     ))
 
     application.add_handler(CommandHandler('show_status', show_status))
